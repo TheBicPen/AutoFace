@@ -148,11 +148,15 @@ def main():
 
     # Capture the webcam feed
     cap = cv2.VideoCapture(-1)
+    if not cap.isOpened():
+        exit("Failed to open camera")
     cv2.namedWindow("Video", flags=(cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE))
     with FaceDetector.create_from_options(options) as mp_face_detection:
         while True:
             # Read a frame from the webcam
             ret, frame = cap.read()
+            if not ret:
+                exit("Failed to get frame from webcam")
 
             # convert to MP image
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
