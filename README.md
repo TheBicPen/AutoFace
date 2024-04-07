@@ -23,3 +23,10 @@ Some of the commands may not be available, but there should be equivalent altern
 2. Run `python main.py`. This will open a window you can use as a source in any recording or livestreaming application
 3. To quit, press 'q'
 
+### OBS
+To keep the window at a fixed size in OBS, do the following steps:
+1. Right-click the source
+2. Go to `Transform` -> `Edit Transform`
+3. Change the `Bounding Box Type` from `No bounds` to `Stretch to bounds`
+4. Resize the window to whatever size you want
+
