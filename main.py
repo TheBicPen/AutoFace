@@ -9,6 +9,8 @@ import time
 
 # Constants related to image processing
 SMOOTH_NUM_FRAMES = 10  # Number of frames to average over
+LOW_PASS_THRESHOLD = 20  # Changes smaller than this (in pixels) are ignored
+INITIAL_SIZE = 400
 
 # Gaps between the edge of the face and the edge of the window in pixels
 MARGIN_TOP = 75
@@ -26,8 +28,9 @@ DEBUG_LEVEL = 0
 
 # Mutable global state
 global_frame = None
-# Initial size is 400*400
-global_trailing_dimensions = np.array([[400] * 4] * SMOOTH_NUM_FRAMES)
+# Start with a fixed initial size
+global_trailing_dimensions = np.array([[INITIAL_SIZE] * 4] * SMOOTH_NUM_FRAMES)
+global_low_pass_last_amounts = np.array([INITIAL_SIZE] * 4)
 
 
 # Debug utilities
@@ -78,16 +81,26 @@ def visualize(detection_result, image, timestamp) -> None:
     end_x = min(bbox.origin_x + bbox.width + MARGIN_RIGHT, width)
     start_y = max(bbox.origin_y - MARGIN_TOP, 0)
     end_y = min(bbox.origin_y + bbox.height + MARGIN_BOTTOM, height)
+    current_box = np.array([start_y, end_y, start_x, end_x])
 
-    # Average the dimensions over the last SMOOTH_NUM_FRAMES frames
+    # Ignore changes below a threshold
+    global global_low_pass_last_amounts
+    if np.max(np.abs(current_box - global_low_pass_last_amounts)) >= LOW_PASS_THRESHOLD:
+        global_low_pass_last_amounts = current_box
+    dimensions = global_low_pass_last_amounts
+
+    # Update the trailing values
     global global_trailing_dimensions
     global_trailing_dimensions = np.roll(global_trailing_dimensions, 1, axis=0)
-    global_trailing_dimensions[0] = [start_y, end_y, start_x, end_x]
-    smoothed = np.average(global_trailing_dimensions, axis=0).astype(int)
-    # print(smoothed)
+    global_trailing_dimensions[0] = dimensions
+    # Average the dimensions over the last SMOOTH_NUM_FRAMES frames
+    dimensions = np.average(global_trailing_dimensions, axis=0).astype(int)
 
+    # Write the frame
     global global_frame
-    global_frame = opencv_image[smoothed[0] : smoothed[1], smoothed[2] : smoothed[3]]
+    global_frame = opencv_image[
+        dimensions[0] : dimensions[1], dimensions[2] : dimensions[3]
+    ]
 
     if DEBUG_LEVEL == 0:
         return
