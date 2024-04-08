@@ -9,6 +9,19 @@ import time
 
 # Constants related to image processing
 SMOOTH_NUM_FRAMES = 10  # Number of frames to average over
+# Normalization factor
+SMOOTH_TRIANGLE = SMOOTH_NUM_FRAMES * (SMOOTH_NUM_FRAMES + 1) / 2
+# Triangular weighted moving average - weights n, n-1, ... 2, 1
+SMOOTHING_WEIGHTS = (
+    np.tile(np.arange(SMOOTH_NUM_FRAMES, 0, -1), 4)
+    .reshape(4, SMOOTH_NUM_FRAMES)
+    .transpose()
+)
+# Normalize weights
+SMOOTHING_WEIGHTS_NORMALIZED = SMOOTHING_WEIGHTS / SMOOTH_TRIANGLE
+assert np.array_equal(
+    np.sum(SMOOTHING_WEIGHTS_NORMALIZED, axis=0), [1.0] * 4
+), "Failed to normalize weights"
 LOW_PASS_THRESHOLD = 20  # Changes smaller than this (in pixels) are ignored
 INITIAL_SIZE = 400
 
@@ -93,8 +106,11 @@ def visualize(detection_result, image, timestamp) -> None:
     global global_trailing_dimensions
     global_trailing_dimensions = np.roll(global_trailing_dimensions, 1, axis=0)
     global_trailing_dimensions[0] = dimensions
-    # Average the dimensions over the last SMOOTH_NUM_FRAMES frames
-    dimensions = np.average(global_trailing_dimensions, axis=0).astype(int)
+
+    # Apply weighted moving average over the last SMOOTH_NUM_FRAMES frames
+    dimensions = np.sum(
+        global_trailing_dimensions * SMOOTHING_WEIGHTS_NORMALIZED, axis=0
+    ).astype(int)
 
     # Write the frame
     global global_frame
