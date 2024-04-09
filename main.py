@@ -42,8 +42,8 @@ DEBUG_LEVEL = 0
 # Mutable global state
 global_frame = None
 # Start with a fixed initial size
-global_trailing_dimensions = np.array([[INITIAL_SIZE] * 4] * SMOOTH_NUM_FRAMES)
-global_low_pass_last_amounts = np.array([INITIAL_SIZE] * 4)
+global_trailing_dimensions = np.array([[0, INITIAL_SIZE] * 2] * SMOOTH_NUM_FRAMES)
+global_low_pass_last_amounts = np.array([0, INITIAL_SIZE] * 2)
 
 
 # Debug utilities
@@ -86,8 +86,15 @@ def visualize(detection_result, image, timestamp) -> None:
             max_probability = category.score
             max_detection = detection
 
+    # If no face was detected, use the new frame with the previous dimensions
+    global global_frame
+    global global_trailing_dimensions
     if not max_detection:
-        return  # Keep old image if no face was detected
+        global_frame = opencv_image[
+            global_trailing_dimensions[0][0] : global_trailing_dimensions[0][1],
+            global_trailing_dimensions[0][2] : global_trailing_dimensions[0][3],
+        ]
+        return
 
     bbox = max_detection.bounding_box
     start_x = max(bbox.origin_x - MARGIN_LEFT, 0)
@@ -103,7 +110,6 @@ def visualize(detection_result, image, timestamp) -> None:
     dimensions = global_low_pass_last_amounts
 
     # Update the trailing values
-    global global_trailing_dimensions
     global_trailing_dimensions = np.roll(global_trailing_dimensions, 1, axis=0)
     global_trailing_dimensions[0] = dimensions
 
@@ -113,7 +119,6 @@ def visualize(detection_result, image, timestamp) -> None:
     ).astype(int)
 
     # Write the frame
-    global global_frame
     global_frame = opencv_image[
         dimensions[0] : dimensions[1], dimensions[2] : dimensions[3]
     ]
