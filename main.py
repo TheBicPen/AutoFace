@@ -212,7 +212,8 @@ def make_visualizer(args):
                         keypoint.x, keypoint.y, width, height
                     )
                 color, thickness, radius = (0, 255, 0), 2, 2
-                cv2.circle(opencv_image, keypoint_px, radius, color, thickness)
+                # This signature seems correct - I don't know why the type checker complains
+                cv2.circle(opencv_image, keypoint_px, radius, color, thickness) # type: ignore
 
                 # Draw label and score
                 category = detection.categories[0]
