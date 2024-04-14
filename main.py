@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+import sys
 import mediapipe as mp
 import cv2
 import numpy as np
@@ -237,8 +238,11 @@ def make_visualizer(args):
 
 
 def main():
+    # Probably runs on 3.9 too, but 3.10 is very widely used
+    assert sys.version_info >= (3, 10), "This tool requires at least python 3.10"
     args = parse_args()
     print("Press 'q' to exit")
+
     BaseOptions = mp.tasks.BaseOptions
     FaceDetector = mp.tasks.vision.FaceDetector
     FaceDetectorOptions = mp.tasks.vision.FaceDetectorOptions
