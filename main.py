@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+from pathlib import Path
 import sys
 import mediapipe as mp
 import cv2
@@ -71,6 +72,11 @@ def parse_args():
         type=int,
         default=MARGIN_RIGHT,
         help="Gap between the right of the face and the edge of the window",
+    )
+    parser.add_argument(
+        "--tracking-model",
+        default=Path(__file__).parent / "blaze_face_short_range.tflite",
+        help="Path to the MediaPipe face detection model",
     )
     return parser.parse_args()
 
@@ -254,7 +260,7 @@ def main():
 
     # Initialize the MediaPipe Face Detector in live stream mode
     options = FaceDetectorOptions(
-        base_options=BaseOptions(model_asset_path="blaze_face_short_range.tflite"),
+        base_options=BaseOptions(model_asset_path=args.tracking_model),
         running_mode=VisionRunningMode.LIVE_STREAM,
         result_callback=visualizer,
     )
