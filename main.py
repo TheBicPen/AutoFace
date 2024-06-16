@@ -23,6 +23,10 @@ def parse_args():
     MARGIN_LEFT = 50
     MARGIN_RIGHT = 50
 
+    # Minimum size of the window
+    MIN_WIDTH = None
+    MIN_HEIGHT = None
+
     parser = ArgumentParser()
     parser.add_argument(
         "--debug",
@@ -72,6 +76,18 @@ def parse_args():
         type=int,
         default=MARGIN_RIGHT,
         help="Gap between the right of the face and the edge of the window",
+    )
+    parser.add_argument(
+        "--min-width",
+        type=int,
+        default=MIN_WIDTH,
+        help="Minimum width of the window",
+    )
+    parser.add_argument(
+        "--min-height",
+        type=int,
+        default=MIN_HEIGHT,
+        help="Minimum height of the window",
     )
     parser.add_argument(
         "--tracking-model",
@@ -144,7 +160,7 @@ def make_visualizer(args):
         on the input image based on the DEBUG_LEVEL
         """
         opencv_image = np.array(image.numpy_view())
-        height, width, _ = opencv_image.shape
+        image_height, image_width, _ = opencv_image.shape
 
         # Choose detecton with the highest probability
         max_probability = 0
@@ -167,9 +183,21 @@ def make_visualizer(args):
 
         bbox = max_detection.bounding_box
         start_x = max(bbox.origin_x - args.margin_left, 0)
-        end_x = min(bbox.origin_x + bbox.width + args.margin_right, width)
+        end_x = min(bbox.origin_x + bbox.width + args.margin_right, image_width)
+        missing_width = (args.min_width - (end_x - start_x)) if args.min_width else 0
+        if missing_width > 0:
+            pad_left = min(missing_width // 2, start_x)
+            start_x -= pad_left
+            missing_width -= pad_left
+            end_x += missing_width
         start_y = max(bbox.origin_y - args.margin_top, 0)
-        end_y = min(bbox.origin_y + bbox.height + args.margin_bottom, height)
+        end_y = min(bbox.origin_y + bbox.height + args.margin_bottom, image_height)
+        missing_height = (args.min_height - (end_y - start_y)) if args.min_height else 0
+        if missing_height > 0:
+            pad_top = min(missing_height // 2, start_y)
+            start_y -= pad_top
+            missing_height -= pad_top
+            end_y += missing_height
         current_box = np.array([start_y, end_y, start_x, end_x])
 
         # Ignore changes below a threshold
@@ -204,7 +232,7 @@ def make_visualizer(args):
             cv2.rectangle(opencv_image, start_point, end_point, TEXT_COLOR, 3)
 
         elif args.debug == 2:
-            height, width, _ = opencv_image.shape
+            image_height, image_width, _ = opencv_image.shape
             for detection in detection_result.detections:
                 # Draw bounding_box
                 bbox = detection.bounding_box
@@ -215,7 +243,7 @@ def make_visualizer(args):
                 # Draw keypoints
                 for keypoint in detection.keypoints:
                     keypoint_px = _normalized_to_pixel_coordinates(
-                        keypoint.x, keypoint.y, width, height
+                        keypoint.x, keypoint.y, image_width, image_height
                     )
                 color, thickness, radius = (0, 255, 0), 2, 2
                 # This signature seems correct - I don't know why the type checker complains
