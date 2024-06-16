@@ -148,11 +148,13 @@ def make_visualizer(args):
     ), "Failed to normalize weights"
 
     # Constants for drawing debug info on screen
-    MARGIN = 10  # pixels
+    TEXT_MARGIN = 10  # pixels
     ROW_SIZE = 10  # pixels
     FONT_SIZE = 1
     FONT_THICKNESS = 1
     TEXT_COLOR = (255, 0, 0)  # blue - the format is BGR
+    VIEWPORT_BOX_COLOR = (10, 200, 10)  # BGR
+    MARGIN_BOX_COLOR = (10, 10, 200)  # BGR
 
     def visualize(detection_result, image, timestamp) -> None:
         """
@@ -232,7 +234,15 @@ def make_visualizer(args):
             cv2.rectangle(opencv_image, start_point, end_point, TEXT_COLOR, 3)
 
         elif args.debug == 2:
-            image_height, image_width, _ = opencv_image.shape
+            # Draw viewport rectangle before smoothing
+            cv2.rectangle(opencv_image, (start_x, start_y), (end_x, end_y), VIEWPORT_BOX_COLOR, 3)
+
+            margin_start = (bbox.origin_x - args.margin_left, bbox.origin_y - args.margin_top)
+            margin_end = (bbox.origin_x + bbox.width + args.margin_right, bbox.origin_y + bbox.height + args.margin_bottom)
+            # Draw margin rectangle - may be partially off-screen
+            cv2.rectangle(opencv_image, margin_start, margin_end, MARGIN_BOX_COLOR, 3)
+
+            # Draw every detected face
             for detection in detection_result.detections:
                 # Draw bounding_box
                 bbox = detection.bounding_box
@@ -256,8 +266,8 @@ def make_visualizer(args):
                 probability = round(category.score, 2)
                 result_text = f"{category_name} ({probability})"
                 text_location = (
-                    MARGIN + bbox.origin_x,
-                    MARGIN + ROW_SIZE + bbox.origin_y,
+                    TEXT_MARGIN + bbox.origin_x,
+                    TEXT_MARGIN + ROW_SIZE + bbox.origin_y,
                 )
                 cv2.putText(
                     opencv_image,
