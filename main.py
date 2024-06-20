@@ -123,6 +123,7 @@ def _normalized_to_pixel_coordinates(
 class State:
     def __init__(self) -> None:
         self.frame: None | np.ndarray = None
+        self.frozen = False
 
 
 def make_visualizer(args):
@@ -176,7 +177,7 @@ def make_visualizer(args):
         # If no face was detected, use the new frame with the previous dimensions
         nonlocal shared_state
         nonlocal trailing_dimensions
-        if not max_detection:
+        if not max_detection or shared_state.frozen:
             shared_state.frame = opencv_image[
                 trailing_dimensions[0][0] : trailing_dimensions[0][1],
                 trailing_dimensions[0][2] : trailing_dimensions[0][3],
@@ -286,7 +287,7 @@ def main():
     # Probably runs on 3.9 too, but 3.10 is very widely used
     assert sys.version_info >= (3, 10), "This tool requires at least python 3.10"
     args = parse_args()
-    print("Press 'q' to exit")
+    print("Press 'q' to exit, 'f' to freeze the window size")
 
     BaseOptions = mp.tasks.BaseOptions
     FaceDetector = mp.tasks.vision.FaceDetector
@@ -329,9 +330,11 @@ def main():
                 cv2.imshow("Video", state.frame)
 
             # Press 'q' to exit the loop
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            key = cv2.waitKey(1)
+            if key & 0xFF == ord("q"):
                 break
-
+            elif key & 0xFF == ord("f"):
+                state.frozen = not state.frozen
     # Release the webcam and close all windows
     cap.release()
     cv2.destroyAllWindows()
