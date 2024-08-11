@@ -5,12 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: main",
+            "name": "Run and save log",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "args": [
+                "-o", "test.log"
+            ]
+        },
+        {
+            "name": "Replay log",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test.log", "1920", "1080",
+                "--debug", "2"
             ]
         }
     ]

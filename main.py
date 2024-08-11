@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace, FileType
 from pathlib import Path
 import sys
 import mediapipe as mp
@@ -10,6 +10,7 @@ from typing import Tuple, Union
 import math
 import time
 
+from utils import detection_result_to_str
 
 def parse_args():
     # Default values
@@ -28,6 +29,11 @@ def parse_args():
     MIN_HEIGHT = None
 
     parser = ArgumentParser()
+    parser.add_argument(
+        "-o", "--log-file",
+        type=FileType('w'),
+        help="Log the detection locations to a file. Useful for debugging"
+    )
     parser.add_argument(
         "--debug",
         type=int,
@@ -126,7 +132,7 @@ class State:
         self.frozen = False
 
 
-def make_visualizer(args):
+def make_visualizer(args: Namespace):
     # Mutable state captured inside visualize
     shared_state = State()
     # Start with a fixed initial size
@@ -164,6 +170,9 @@ def make_visualizer(args):
         """
         opencv_image = np.array(image.numpy_view())
         image_height, image_width, _ = opencv_image.shape
+
+        if args.log_file:
+            args.log_file.write(f"{timestamp}:{detection_result_to_str(detection_result)}\n")
 
         # Choose detecton with the highest probability
         max_probability = 0
@@ -242,6 +251,7 @@ def make_visualizer(args):
             margin_end = (bbox.origin_x + bbox.width + args.margin_right, bbox.origin_y + bbox.height + args.margin_bottom)
             # Draw margin rectangle - may be partially off-screen
             cv2.rectangle(opencv_image, margin_start, margin_end, MARGIN_BOX_COLOR, 3)
+            # print(margin_start, margin_end)
 
             # Draw every detected face
             for detection in detection_result.detections:
@@ -249,16 +259,18 @@ def make_visualizer(args):
                 bbox = detection.bounding_box
                 start_point = bbox.origin_x, bbox.origin_y
                 end_point = bbox.origin_x + bbox.width, bbox.origin_y + bbox.height
+                # print(start_point, end_point)
                 cv2.rectangle(opencv_image, start_point, end_point, TEXT_COLOR, 3)
 
-                # Draw keypoints
-                for keypoint in detection.keypoints:
-                    keypoint_px = _normalized_to_pixel_coordinates(
-                        keypoint.x, keypoint.y, image_width, image_height
-                    )
-                color, thickness, radius = (0, 255, 0), 2, 2
-                # This signature seems correct - I don't know why the type checker complains
-                cv2.circle(opencv_image, keypoint_px, radius, color, thickness) # type: ignore
+                if detection.keypoints:
+                    # Draw keypoints
+                    for keypoint in detection.keypoints:
+                        keypoint_px = _normalized_to_pixel_coordinates(
+                            keypoint.x, keypoint.y, image_width, image_height
+                        )
+                    color, thickness, radius = (0, 255, 0), 2, 2
+                    # This signature seems correct - I don't know why the type checker complains
+                    cv2.circle(opencv_image, keypoint_px, radius, color, thickness) # type: ignore
 
                 # Draw label and score
                 category = detection.categories[0]
