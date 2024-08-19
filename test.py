@@ -32,7 +32,7 @@ def replay_log(log: TextIO, dim_x: int, dim_y: int, args: Namespace):
 
     # Create a blank frame to display
     # Image has 3 color channels - see https://ai.google.dev/edge/api/mediapipe/python/mp/ImageFormat
-    blank_frame = np.zeros((dim_x, dim_y, 3), dtype=np.uint8)
+    blank_frame = np.zeros((dim_y, dim_x, 3), dtype=np.uint8)
     state.frame = blank_frame
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.asarray(state.frame))
 
