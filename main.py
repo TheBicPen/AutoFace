@@ -190,23 +190,30 @@ def make_visualizer(args: Namespace):
             # If no face was detected, use the new frame with the previous dimensions
             dimensions = trailing_dimensions[0]
         else:
-            bbox = max_detection.bounding_box
+            bbox = max_detection.bounding_box # type: ignore - I don't know why it doesn't understand that this is not None
+
+            # Clamp margin to edges of frame
             start_x = max(bbox.origin_x - args.margin_left, 0)
             end_x = min(bbox.origin_x + bbox.width + args.margin_right, image_width)
+            # Pad width on both sides to reach minimum
             missing_width = (args.min_width - (end_x - start_x)) if args.min_width else 0
             if missing_width > 0:
                 pad_left = min(missing_width // 2, start_x)
                 start_x -= pad_left
                 missing_width -= pad_left
                 end_x += missing_width
+
+            # Clamp margin to edges of frame
             start_y = max(bbox.origin_y - args.margin_top, 0)
             end_y = min(bbox.origin_y + bbox.height + args.margin_bottom, image_height)
+            # Pad height on both sides to reach minimum
             missing_height = (args.min_height - (end_y - start_y)) if args.min_height else 0
             if missing_height > 0:
                 pad_top = min(missing_height // 2, start_y)
                 start_y -= pad_top
                 missing_height -= pad_top
                 end_y += missing_height
+
             current_box = np.array([start_y, end_y, start_x, end_x])
 
             # Ignore changes below a threshold
