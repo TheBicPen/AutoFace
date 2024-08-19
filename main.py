@@ -37,9 +37,9 @@ def parse_args():
     parser.add_argument(
         "--debug",
         type=int,
-        choices=[0, 1, 2],
+        choices=range(4),
         default=0,
-        help="1: Show bounding boxes for detected face. 2: Also show confidence level and other detected faces",
+        help="1: Show bounding boxes for detected face. 2: Also show confidence level and other detected faces. 3: Draw bounding box instead of cropping the window to it",
     )
     parser.add_argument(
         "--low-pass-threshold",
@@ -183,57 +183,64 @@ def make_visualizer(args: Namespace):
                 max_probability = category.score
                 max_detection = detection
 
-        # If no face was detected, use the new frame with the previous dimensions
         nonlocal shared_state
         nonlocal trailing_dimensions
-        if not max_detection or shared_state.frozen:
-            shared_state.frame = opencv_image[
-                trailing_dimensions[0][0] : trailing_dimensions[0][1],
-                trailing_dimensions[0][2] : trailing_dimensions[0][3],
-            ]
-            return
+        no_detection_processing = max_detection is None or shared_state.frozen
+        if no_detection_processing:
+            # If no face was detected, use the new frame with the previous dimensions
+            dimensions = trailing_dimensions[0]
+        else:
+            bbox = max_detection.bounding_box
+            start_x = max(bbox.origin_x - args.margin_left, 0)
+            end_x = min(bbox.origin_x + bbox.width + args.margin_right, image_width)
+            missing_width = (args.min_width - (end_x - start_x)) if args.min_width else 0
+            if missing_width > 0:
+                pad_left = min(missing_width // 2, start_x)
+                start_x -= pad_left
+                missing_width -= pad_left
+                end_x += missing_width
+            start_y = max(bbox.origin_y - args.margin_top, 0)
+            end_y = min(bbox.origin_y + bbox.height + args.margin_bottom, image_height)
+            missing_height = (args.min_height - (end_y - start_y)) if args.min_height else 0
+            if missing_height > 0:
+                pad_top = min(missing_height // 2, start_y)
+                start_y -= pad_top
+                missing_height -= pad_top
+                end_y += missing_height
+            current_box = np.array([start_y, end_y, start_x, end_x])
 
-        bbox = max_detection.bounding_box
-        start_x = max(bbox.origin_x - args.margin_left, 0)
-        end_x = min(bbox.origin_x + bbox.width + args.margin_right, image_width)
-        missing_width = (args.min_width - (end_x - start_x)) if args.min_width else 0
-        if missing_width > 0:
-            pad_left = min(missing_width // 2, start_x)
-            start_x -= pad_left
-            missing_width -= pad_left
-            end_x += missing_width
-        start_y = max(bbox.origin_y - args.margin_top, 0)
-        end_y = min(bbox.origin_y + bbox.height + args.margin_bottom, image_height)
-        missing_height = (args.min_height - (end_y - start_y)) if args.min_height else 0
-        if missing_height > 0:
-            pad_top = min(missing_height // 2, start_y)
-            start_y -= pad_top
-            missing_height -= pad_top
-            end_y += missing_height
-        current_box = np.array([start_y, end_y, start_x, end_x])
+            # Ignore changes below a threshold
+            nonlocal low_pass_last_amounts
+            if (
+                np.max(np.abs(current_box - low_pass_last_amounts))
+                >= args.low_pass_threshold
+            ):
+                low_pass_last_amounts = current_box
+            dimensions = low_pass_last_amounts
 
-        # Ignore changes below a threshold
-        nonlocal low_pass_last_amounts
-        if (
-            np.max(np.abs(current_box - low_pass_last_amounts))
-            >= args.low_pass_threshold
-        ):
-            low_pass_last_amounts = current_box
-        dimensions = low_pass_last_amounts
+            # Update the trailing values
+            trailing_dimensions = np.roll(trailing_dimensions, 1, axis=0)
+            trailing_dimensions[0] = dimensions
 
-        # Update the trailing values
-        trailing_dimensions = np.roll(trailing_dimensions, 1, axis=0)
-        trailing_dimensions[0] = dimensions
-
-        # Apply weighted moving average over the last SMOOTH_NUM_FRAMES frames
-        dimensions = np.sum(
-            trailing_dimensions * SMOOTHING_WEIGHTS_NORMALIZED, axis=0
-        ).astype(int)
+            # Apply weighted moving average over the last SMOOTH_NUM_FRAMES frames
+            dimensions = np.sum(
+                trailing_dimensions * SMOOTHING_WEIGHTS_NORMALIZED, axis=0
+            ).astype(int)
 
         # Write the frame
         shared_state.frame = opencv_image[
             dimensions[0] : dimensions[1], dimensions[2] : dimensions[3]
         ]
+
+        if args.debug == 3:
+            shared_state.frame = opencv_image
+            # Dimensions array is: [start y, end y, start x, end x]
+            cv2.rectangle(opencv_image, (dimensions[2], dimensions[0]), (dimensions[3], dimensions[1]), TEXT_COLOR, 3)
+            return
+
+        if no_detection_processing:
+            # If nothing was detected, we have no useful debug information
+            return
 
         if args.debug == 0:
             return
