@@ -1,4 +1,4 @@
 env/
 *.tflite
 __pycache__
-test.log
+*.log
