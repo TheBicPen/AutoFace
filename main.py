@@ -130,6 +130,8 @@ class State:
     def __init__(self) -> None:
         self.frame: None | np.ndarray = None
         self.frozen = False
+        # Re-center the frame immediately. Reset this each frame
+        self.do_flush = False
 
 
 def make_visualizer(args: Namespace):
@@ -185,7 +187,7 @@ def make_visualizer(args: Namespace):
 
         nonlocal shared_state
         nonlocal trailing_dimensions
-        no_detection_processing = max_detection is None or shared_state.frozen
+        no_detection_processing = (max_detection is None or shared_state.frozen) and not shared_state.do_flush
         if no_detection_processing:
             # If no face was detected, use the new frame with the previous dimensions
             dimensions = trailing_dimensions[0]
@@ -218,7 +220,7 @@ def make_visualizer(args: Namespace):
 
             # Ignore changes below a threshold
             nonlocal low_pass_last_amounts
-            if (
+            if shared_state.do_flush or (
                 np.max(np.abs(current_box - low_pass_last_amounts))
                 >= args.low_pass_threshold
             ):
@@ -238,6 +240,8 @@ def make_visualizer(args: Namespace):
         shared_state.frame = opencv_image[
             dimensions[0] : dimensions[1], dimensions[2] : dimensions[3]
         ]
+
+        shared_state.do_flush = False
 
         if args.debug == 3:
             shared_state.frame = opencv_image
@@ -313,7 +317,7 @@ def main():
     # Probably runs on 3.9 too, but 3.10 is very widely used
     assert sys.version_info >= (3, 10), "This tool requires at least python 3.10"
     args = parse_args()
-    print("Press 'q' to exit, 'f' to freeze the window size")
+    print("Press 'q' to exit, 'f' to freeze the window size, arrow keys to resize")
 
     BaseOptions = mp.tasks.BaseOptions
     FaceDetector = mp.tasks.vision.FaceDetector
@@ -355,12 +359,32 @@ def main():
             if state.frame is not None:
                 cv2.imshow("Video", state.frame)
 
-            # Press 'q' to exit the loop
             key = cv2.waitKey(1)
             if key & 0xFF == ord("q"):
+                # Press 'q' to exit the loop
                 break
             elif key & 0xFF == ord("f"):
                 state.frozen = not state.frozen
+            elif key == 81:
+                # left arrow
+                args.margin_left -= 5
+                args.margin_right -= 5
+                state.do_flush = True
+            elif key == 82:
+                # up arrow
+                args.margin_top += 5
+                args.margin_bottom += 5
+                state.do_flush = True
+            elif key == 83:
+                # right arrow
+                args.margin_left += 5
+                args.margin_right += 5
+                state.do_flush = True
+            elif key == 84:
+                # down arrow
+                args.margin_top -= 5
+                args.margin_bottom -= 5
+                state.do_flush = True
     # Release the webcam and close all windows
     cap.release()
     cv2.destroyAllWindows()
